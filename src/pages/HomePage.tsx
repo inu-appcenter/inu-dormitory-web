@@ -9,37 +9,30 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchDailyRandomTips } from "../apis/tips.ts";
 import { Tip } from "../types/tips.ts";
 import RoomMateCard from "../components/roommate/RoomMateCard.tsx";
-import { getRoomMateList } from "../apis/roommate.ts";
-import { RoommatePost } from "../types/roommates.ts";
-import { getAnnouncements } from "../apis/announcements.ts";
-import { Announcement } from "../types/announcements.ts";
+import BottomBar from "../components/common/BottomBar.tsx";
+import { useAnnouncement } from "../stores/AnnouncementContext.tsx";
+import { useRoomMateContext } from "../stores/RoomMateContext.tsx";
+import 궁금해하는횃불이 from "../assets/roommate/궁금해하는횃불이.png";
+import RoundSquareWhiteButton from "../components/button/RoundSquareWhiteButton.tsx";
+import RoundSquareBlueButton from "../components/button/RoundSquareBlueButton.tsx";
 
 export default function HomePage() {
-  const [tips, setTips] = useState<Tip[]>([]);
-  const [notices, setNotices] = useState<Announcement[]>([]);
+  const [dailyTips, setDailyTips] = useState<Tip[]>([]);
+  const { notices } = useAnnouncement();
 
   useEffect(() => {
     const getTips = async () => {
       try {
         const data = await fetchDailyRandomTips();
-        setTips(data);
+        setDailyTips(data);
       } catch (err: any) {
         if (err.response?.status === 204) {
-          setTips([]); // 팁이 3개 미만인 경우 빈 배열
+          setDailyTips([]); // 팁이 3개 미만인 경우 빈 배열
         }
       }
     };
-    async function fetchAnnouncements() {
-      try {
-        const response = await getAnnouncements();
-        setNotices(response.data);
-      } catch (error) {
-        console.error("공지사항 불러오기 실패", error);
-      }
-    }
 
     getTips();
-    fetchAnnouncements();
   }, []);
 
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -95,30 +88,24 @@ export default function HomePage() {
     };
   }, []);
 
-  const [roommates, setRoommates] = useState<RoommatePost[]>([]);
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await getRoomMateList();
-        setRoommates(response.data);
-      } catch (error) {
-        console.error("룸메이트 목록 가져오기 실패:", error);
-      }
-    };
-
-    fetchData();
-  }, []);
+  const { roommates } = useRoomMateContext();
 
   const randomRoommate = useMemo(() => {
-    if (!roommates || roommates.length === 0) return null;
+    if (!Array.isArray(roommates) || roommates.length === 0) return null;
 
     const unmatchedRoommates = roommates.filter((r) => !r.matched);
-    if (unmatchedRoommates.length === 0) return null;
+    if (!Array.isArray(unmatchedRoommates) || unmatchedRoommates.length === 0)
+      return null;
 
     const index = Math.floor(Math.random() * unmatchedRoommates.length);
     return unmatchedRoommates[index];
   }, [roommates]);
 
+  // 초기 상태를 localStorage에서 불러오기
+  const [showInfoModal, setShowInfoModal] = useState(() => {
+    const saved = localStorage.getItem("hideInfoModal");
+    return saved !== "true"; // 저장값이 "true"면 숨김
+  });
   return (
     <HomePageWrapper>
       <Header title="아이돔" hasBack={false} showAlarm={true} />
@@ -207,8 +194,8 @@ export default function HomePage() {
           link={"/tips"}
           children={
             <>
-              {tips.length > 0 ? (
-                tips.map((tip, key) => (
+              {dailyTips.length > 0 ? (
+                dailyTips.map((tip, key) => (
                   <HomeTipsCard
                     key={key}
                     index={key + 1}
@@ -235,6 +222,102 @@ export default function HomePage() {
         {/*  children={<GroupPurchaseList />}*/}
         {/*/>*/}
       </ContentWrapper>
+
+      {showInfoModal && (
+        <ModalBackGround>
+          <Modal>
+            <ModalContentWrapper>
+              <ModalHeader>
+                <img src={궁금해하는횃불이} className="wonder-character" />
+                <h2>유니돔에서 알려드립니다</h2>
+                <span>
+                  기숙사 룸메이트 신청 기간입니다.
+                  <br />
+                  결핵 검사도 놓치지 마세요!
+                </span>
+              </ModalHeader>
+              <ModalScrollArea>
+                <h3>기숙사 룸메이트 신청은 어떻게 하나요?</h3>
+                <p>
+                  반드시 룸메이트 사전 지정 기간에{" "}
+                  <strong>인천대학교 포털에서 신청</strong>해주세요!!!!
+                  <strong>
+                    <br />❍ 신청기간 : 2025. 08. 15(금) 00:00 ~ 08. 17(일) 23:59
+                  </strong>
+                  <br />
+                  ❍ 신청방법
+                  <br />- 포털(
+                  <a
+                    href="https://portal.inu.ac.kr"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    https://portal.inu.ac.kr
+                  </a>
+                  ) → 통합정보 → 부속행정(생활원) → 합격조회
+                  <br />
+                  ❍ 주의사항
+                  <br />
+                  - 입사기간 및 호실형태가 동일한 학생끼리 서로 신청해야
+                  룸메이트 매칭 가능
+                  <br />
+                  ▷ 별도선발 신청자의 룸메이트 신청을 원하는 경우, 별도선발 부서
+                  신청 기간 내 신청바랍니다.
+                  <br />- 룸메이트 신청은 2명이 서로 신청한 경우에만 신청이
+                  인정됨
+                </p>
+                <h3>결핵 검사도 놓치지 마세요!</h3>
+                <p>
+                  <strong>
+                    결핵 검사 후 결과지 수령까지 보통 1주일 정도 걸리니 미리
+                    하시기 바랍니다.
+                  </strong>
+                  <br /> ○ 결핵검사결과서
+                  <br />
+                  - 검진항목 : 보건소, 내과 등 의료기관에서 시행하는 흉부 엑스선
+                  검사(결핵검사)
+                  <br />
+                  ※ 일반 내과 발급 진단서 또는 소견서 / 보건증 / 신체검사확인서
+                  등<br />
+                  - 기준 : 입사일 기준 2개월 이내의 진단서만 유효함
+                  <br />※ 정기입사자 검진일 기준 : 2025. 06. 30 이후 검진기록
+                  인정
+                </p>
+                <p>
+                  <br />
+                  기타 자세한 사항은{" "}
+                  <a
+                    href="https://dorm.inu.ac.kr/dorm/6521/subview.do?enc=Zm5jdDF8QEB8JTJGYmJzJTJGZG9ybSUyRjIwMDMlMkY0MTAwNjIlMkZhcnRjbFZpZXcuZG8lM0Y%3D"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    여기
+                  </a>
+                  를 클릭하여 확인
+                </p>
+              </ModalScrollArea>
+            </ModalContentWrapper>
+            <ButtonGroupWrapper>
+              <RoundSquareWhiteButton
+                btnName={"다시 보지 않기"}
+                onClick={() => {
+                  localStorage.setItem("hideInfoModal", "true"); // 다음 방문에도 안 뜨도록
+                  setShowInfoModal(false);
+                }}
+              />
+
+              <RoundSquareBlueButton
+                btnName={"닫기"}
+                onClick={() => {
+                  setShowInfoModal(false);
+                }}
+              />
+            </ButtonGroupWrapper>
+          </Modal>
+        </ModalBackGround>
+      )}
+
+      <BottomBar />
     </HomePageWrapper>
   );
 }
@@ -335,4 +418,114 @@ const EmptyMessage = styled.div`
   font-size: 14px;
   width: 100%;
   box-sizing: border-box;
+`;
+
+const ModalBackGround = styled.div`
+  position: fixed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  inset: 0 0 0 0;
+  z-index: 9999;
+`;
+
+const Modal = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-sizing: border-box;
+  padding: 32px 20px;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 420px;
+  max-height: 80%;
+  background: white;
+  color: #333366;
+  font-weight: 500;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  animation: fadeIn 0.3s ease-out;
+  overflow: hidden;
+  position: relative;
+
+  .wonder-character {
+    position: absolute;
+    top: 10px;
+    right: 0;
+    width: 100px;
+    height: 100px;
+    z-index: 1000;
+  }
+
+  .content {
+    width: 100%;
+    flex: 1;
+    //height: 100%;
+    overflow-y: auto;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+
+const ModalContentWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden; /* 내부에서만 스크롤 생기도록 */
+`;
+
+const ModalHeader = styled.div`
+  flex-shrink: 0; /* 스크롤 시 줄어들지 않게 고정 */
+  margin-bottom: 12px;
+  justify-content: space-between;
+  padding-right: 50px;
+  overflow-wrap: break-word; // 또는 wordWrap
+  word-break: keep-all; // 단어 중간이 아니라 단어 단위로 줄바꿈
+
+  h2 {
+    margin: 0;
+    box-sizing: border-box;
+    font-size: 22px;
+  }
+  span {
+    font-size: 14px;
+  }
+`;
+
+const ModalScrollArea = styled.div`
+  flex: 1;
+  overflow-y: scroll; /* 항상 스크롤 가능하게 */
+  padding-right: 8px;
+
+  /* 크롬/사파리 */
+  &::-webkit-scrollbar {
+    display: block; /* 기본 표시 */
+    width: 8px; /* 스크롤바 두께 */
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+
+  /* 파이어폭스 */
+  scrollbar-width: thin; /* 얇게 */
+  scrollbar-color: #ccc transparent;
+`;
+
+const ButtonGroupWrapper = styled.div`
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
 `;
